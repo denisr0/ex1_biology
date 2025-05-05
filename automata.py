@@ -1,7 +1,6 @@
 import pygame
 import random
 
-# Constants
 cols, rows = 100, 100
 cell_size = 10
 width, height = cols * cell_size, rows * cell_size
@@ -12,29 +11,29 @@ screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Automaton")
 font = pygame.font.SysFont("arial", 28)
 
+#this is the normal grid for סעיף 1 based on the chosen percentage
 def normal_grid(chance):
     return [[1 if random.random() < chance else 0 for _ in range(cols)] for _ in range(rows)]
 
+# this is the cells for the glider with wraparound
 def glider_grid():
     grid = [[1 for _ in range(cols)] for _ in range(rows)]
-    grid[2][6] = 0
-    grid[3][7] = 0
-    grid[4][7] = 0
-    grid[5][6] = 0
+    grid[48][6] = 0
+    grid[49][7] = 0
+    grid[50][7] = 0
+    grid[51][6] = 0
     return grid
 
+# this is the cells for the glider without wraparound
 def glider_grid_no_wraparound():
-    grid = [[0 for _ in range(cols)] for _ in range(rows)]
-    for y in range(0, rows, 2):
-        for x in range(0, cols, 2):
-            grid[y][x] = 1
-            grid[y + 1][x + 1] = 1
-    gx, gy = 10, 10
-    coords = [(gx+1, gy), (gx, gy+1), (gx+1, gy+1), (gx, gy+2), (gx+1, gy+2), (gx+2, gy+1)]
-    for x, y in coords:
-        grid[y][x] = 1
+    grid = [[1 for _ in range(cols)] for _ in range(rows)]
+    grid[48][6] = 0
+    grid[49][7] = 0
+    grid[50][7] = 0
+    grid[51][6] = 0
     return grid
 
+# this is the cells for סעיף 3 with wraparound
 def interesting_grid_wraparound():
     grid = [[0 for _ in range(cols)] for _ in range(rows)]
     pattern = [[1, 1, 0, 0], [1, 0, 0, 1], [0, 0, 0, 0], [0, 1, 0, 1]]
@@ -45,6 +44,7 @@ def interesting_grid_wraparound():
                     grid[(y + dy) % rows][(x + dx) % cols] = pattern[dy][dx]
     return grid
 
+# this is the cells for סעיף 3 without wraparound
 def interesting_grid_no_wraparound():
     grid = [[0 for _ in range(cols)] for _ in range(rows)]
     for y in range(0, rows, 2):
@@ -61,38 +61,31 @@ def interesting_grid_no_wraparound():
         grid[y+1][x] = 1
     return grid
 
+# here we draw the cells
 def draw_grid(grid):
     screen.fill(WHITE)
     for y in range(rows):
         for x in range(cols):
             color = BLACK if grid[y][x] == 1 else WHITE
             pygame.draw.rect(screen, color, (x * cell_size, y * cell_size, cell_size, cell_size))
-    for y in range(0, rows, 2):
-        for x in range(0, cols, 2):
-            pygame.draw.rect(screen, BLUE, (x * cell_size, y * cell_size, cell_size * 2, cell_size * 2), 1)
-    for y in range(0, rows, 2):
-        for x in range(0, cols, 2):
-            nx, ny = x - 1, y + 1
-            for i in range(0, width, 6):
-                pygame.draw.line(screen, RED, (i, ny * cell_size), (i + 3, ny * cell_size), 2)
-                pygame.draw.line(screen, RED, (i, ny * cell_size + cell_size * 2), (i + 3, ny * cell_size + cell_size * 2), 2)
-            for i in range(0, height, 6):
-                pygame.draw.line(screen, RED, (nx * cell_size, i), (nx * cell_size, i + 3), 2)
-                pygame.draw.line(screen, RED, (nx * cell_size + cell_size * 2, i), (nx * cell_size + cell_size * 2, i + 3), 2)
+    # REMOVE the red and blue lines entirely for performance
     pygame.display.update()
 
+# this is where we change the cells based on the given rules of the automata
 def apply_rules(grid, wraparound, generation):
     offset = 0 if generation % 2 == 1 else 1
     for y in range(offset, rows, 2):
         for x in range(offset, cols, 2):
-            def get(y_, x_):
+            def get(yy, xx):
                 if wraparound:
-                    return grid[y_ % rows][x_ % cols]
-                if 0 <= y_ < rows and 0 <= x_ < cols:
-                    return grid[y_][x_]
+                    return grid[yy % rows][xx % cols]
+                if 0 <= yy < rows and 0 <= xx < cols:
+                    return grid[yy][xx]
                 return 0
             block = [get(y, x), get(y, x + 1), get(y + 1, x), get(y + 1, x + 1)]
+            # summing the live cells in the block
             live_cells = sum(block)
+            # if 2 live cells we dont change anything
             if live_cells == 2:
                 continue
             for dy in range(2):
@@ -101,17 +94,23 @@ def apply_rules(grid, wraparound, generation):
                     xx = (x + dx) % cols if wraparound else x + dx
                     if 0 <= yy < rows and 0 <= xx < cols:
                         grid[yy][xx] = 1 - grid[yy][xx]
+            # 3 live cells case - rotating 180 degrees
             if live_cells == 3:
                 y0, y1 = y % rows, (y + 1) % rows
                 x0, x1 = x % cols, (x + 1) % cols
                 grid[y0][x0], grid[y1][x0], grid[y0][x1], grid[y1][x1] = \
                     grid[y1][x1], grid[y0][x1], grid[y1][x0], grid[y0][x0]
 
+# calculating the stability meaning the percantage of changed cells from last generation
 def calculate_stability(grid, prev_grid):
     if not prev_grid:
         return 100.0
     unchanged = sum(1 for y in range(rows) for x in range(cols) if grid[y][x] == prev_grid[y][x])
     return (unchanged / (rows * cols)) * 100
+
+# counting live cells for live cells index
+def count_live_cells(grid):
+    return sum(cell for row in grid for cell in row)
 
 def main_menu():
     while True:
@@ -132,6 +131,7 @@ def main_menu():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
+                # choosing with wraparound or not
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_0:
                         wraparound = False
@@ -157,6 +157,7 @@ def main_menu():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
+                # בחירת סעיפים
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_1:
                         grid_mode = "normal"
@@ -186,6 +187,7 @@ def main_menu():
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         return
+                    # changing chance based on the choice
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_1:
                             cell_chance = 0.5
@@ -204,10 +206,12 @@ def main_menu():
         elif grid_mode == "interesting":
             grid = interesting_grid_wraparound() if wraparound else interesting_grid_no_wraparound()
 
+        # here is the main run of the automaton
         generation = 1
         paused = False
         prev_grid = None
         draw_grid(grid)
+        clock = pygame.time.Clock()
 
         while True:
             for event in pygame.event.get():
@@ -220,15 +224,18 @@ def main_menu():
                     elif event.key == pygame.K_ESCAPE:
                         return
 
-            if not paused:
+            if not paused and generation < 250:
                 prev_grid_copy = [row[:] for row in grid]
                 apply_rules(grid, wraparound, generation)
                 generation += 1
                 stability = calculate_stability(grid, prev_grid_copy)
+                live_cells = count_live_cells(grid)
                 draw_grid(grid)
                 pygame.display.set_caption(
-                    f"Generation {generation} - Wrap: {wraparound} - Stability: {stability:.2f}%"
+                    f"Generation {generation} - Wrap: {wraparound} - Stability: {stability:.2f}% - Live: {live_cells}"
                 )
+                clock.tick(9)
+
 
 while True:
     main_menu()
