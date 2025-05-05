@@ -1,1 +1,1 @@
-Run automata.exe
+Download and run automata.exe
