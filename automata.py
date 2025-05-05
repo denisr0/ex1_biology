@@ -18,7 +18,7 @@ screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Wraparound Mode Selection")
 font = pygame.font.SysFont("arial", 28)
 
-# --- Visual wraparound selection menu ---
+# --- wraparound selection menu ---
 wraparound = None
 selecting = True
 while selecting:
