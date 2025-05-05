@@ -3,7 +3,7 @@ import random
 
 # Set up the window size
 cols, rows = 100, 100
-cell_size = 10
+cell_size = 8
 width, height = cols * cell_size, rows * cell_size
 
 # Colors
@@ -73,18 +73,72 @@ while selecting:
                 grid_mode = "interesting"
                 selecting = False
 
+# --- Third menu: cell alive chance (if normal selected) ---
+cell_chance = 0.5  # default
+
+if grid_mode == "normal":
+    selecting = True
+    while selecting:
+        screen.fill(WHITE)
+        text1 = font.render("Cell alive chance:", True, BLACK)
+        text2 = font.render("Press 1 for 50%", True, BLACK)
+        text3 = font.render("Press 2 for 25%", True, BLACK)
+        text4 = font.render("Press 3 for 75%", True, BLACK)
+        screen.blit(text1, (width // 2 - text1.get_width() // 2, height // 2 - 90))
+        screen.blit(text2, (width // 2 - text2.get_width() // 2, height // 2 - 40))
+        screen.blit(text3, (width // 2 - text3.get_width() // 2, height // 2 + 10))
+        screen.blit(text4, (width // 2 - text4.get_width() // 2, height // 2 + 60))
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    cell_chance = 0.5
+                    selecting = False
+                elif event.key == pygame.K_2:
+                    cell_chance = 0.25
+                    selecting = False
+                elif event.key == pygame.K_3:
+                    cell_chance = 0.75
+                    selecting = False
+
 # --- Initialize grid ---
 def normal_grid():
-    grid = [[random.randint(0, 1) for _ in range(cols)] for _ in range(rows)]
-    return grid
+    return [[1 if random.random() < cell_chance else 0 for _ in range(cols)] for _ in range(rows)]
 
 def glider_grid():
     grid = [[1 for _ in range(cols)] for _ in range(rows)]
+
     grid[2][6] = 0
     grid[3][7] = 0
     grid[4][7] = 0
     grid[5][6] = 0
+
     return grid
+
+def glider_grid_no_wraparound():
+    grid = [[0 for _ in range(cols)] for _ in range(rows)]
+
+    for y in range(0, rows, 2):
+        for x in range(0, cols, 2):
+            grid[y][x] = 1
+            grid[y + 1][x + 1] = 1
+
+    gx, gy = 10, 10
+    grid[gy][gx + 1] = 1
+    grid[gy + 1][gx] = 1
+    grid[gy + 1][gx + 1] = 0
+    grid[gy + 2][gx] = 1
+    grid[gy + 2][gx + 1] = 1
+    grid[gy + 1][gx + 2] = 1
+    grid[gy + 2][gx + 2] = 0
+    grid[gy + 3][gx + 1] = 1
+
+    return grid
+
 
 def interesting_grid():
     grid = [[random.randint(0, 1) for _ in range(cols)] for _ in range(rows)]
@@ -93,7 +147,6 @@ def interesting_grid():
 def interesting_grid_wraparound():
     grid = [[0 for _ in range(cols)] for _ in range(rows)]
 
-    # Define a 4x4 block that has period 8 under the automaton rules
     pattern = [
         [1, 1, 0, 0],
         [1, 0, 0, 1],
@@ -101,7 +154,6 @@ def interesting_grid_wraparound():
         [0, 1, 0, 1]
     ]
 
-    # Tile it across the grid
     for y in range(0, rows, 4):
         for x in range(0, cols, 4):
             for dy in range(4):
@@ -113,21 +165,29 @@ def interesting_grid_wraparound():
 def interesting_grid_no_wraparound():
     grid = [[0 for _ in range(cols)] for _ in range(rows)]
 
-    # Define the same 4x4 pattern with period ~8
-    pattern = [
-        [1, 1, 0, 0],
-        [1, 0, 0, 1],
-        [0, 0, 0, 0],
-        [0, 1, 0, 1]
-    ]
+    for y in range(0, rows, 2):
+        for x in range(0, cols, 2):
+            grid[y][x] = 1
+            grid[y+1][x+1] = 1
 
-    # Tile it safely inside bounds (avoid borders)
-    margin = 4
-    for y in range(margin, rows - 4, 4):
-        for x in range(margin, cols - 4, 4):
-            for dy in range(4):
-                for dx in range(4):
-                    grid[y + dy][x + dx] = pattern[dy][dx]
+    cx = cols // 2
+    cy = rows // 2
+
+    offsets = [-4, 0, 4]
+
+    for dy in offsets:
+        y = cy + dy
+        x = cx
+
+        if y % 2 != 0:
+            y -= 1
+        if x % 2 != 0:
+            x -= 1
+
+        grid[y][x] = 1
+        grid[y][x+1] = 1
+        grid[y+1][x] = 1
+        grid[y+1][x+1] = 0
 
     return grid
 
@@ -137,7 +197,7 @@ if grid_mode == "normal":
 elif grid_mode == "glider" and wraparound == True:
     grid = glider_grid()
 elif grid_mode == "glider" and wraparound == False:
-    grid = glider_grid()
+    grid = glider_grid_no_wraparound()
 elif grid_mode == "interesting" and wraparound == True:
     grid = interesting_grid_wraparound()
 elif grid_mode == "interesting" and wraparound == False:
@@ -176,7 +236,7 @@ def apply_rules(generation):
                     return grid[y_ % rows][x_ % cols]
                 if 0 <= y_ < rows and 0 <= x_ < cols:
                     return grid[y_][x_]
-                return 0  # Outside = dead in no-wrap mode
+                return 0
 
             block = [
                 get(y, x),
@@ -224,6 +284,6 @@ while running:
         generation += 1
 
     draw_grid()
-    pygame.display.set_caption(f"Automaton Matrix {generation} - Wrap: {int(wraparound)}")
+    pygame.display.set_caption(f"Automaton Matrix {generation} - Wraparound: {wraparound}")
 
 pygame.quit()
